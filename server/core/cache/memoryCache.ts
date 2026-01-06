@@ -92,11 +92,7 @@ export class MemoryCache<T = unknown> {
       this.metrics.evictions++;
     }
 
-    if (toEvict.length > 0) {
-      console.log(
-        `[MemoryCache] Evicted ${toEvict.length} entries (LRU). Current: ${this.store.size} items, ${this.calculateMemoryUsage()} bytes`
-      );
-    }
+    // 静默处理缓存淘汰
   }
 
   /**
@@ -169,12 +165,7 @@ export class MemoryCache<T = unknown> {
       cleaned += freed;
     }
 
-    if (cleaned > 0) {
-      console.log(
-        `[MemoryCache] Smart cleanup: removed ${cleaned} entries (expired: ${expiredKeys.length}, evicted: ${cleaned - expiredKeys.length}). ` +
-        `Current: ${this.store.size} items, ${this.calculateMemoryUsage()} bytes`
-      );
-    }
+    // 静默处理清理
   }
 
   get(key: string): { hit: boolean; value?: T } {

@@ -5,9 +5,6 @@
 
 import { ofetch } from "ofetch";
 import type { $Fetch } from "ofetch";
-import { createLogger } from "./logger";
-
-const logger = createLogger("fetch");
 
 export interface FetchWithRetryOptions {
   /** 最大重试次数，默认 3 */
@@ -72,21 +69,12 @@ export async function fetchWithRetry<T = any>(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       const result = await fetcher<T>(url);
-      if (attempt > 0) {
-        logger.info(`Request succeeded after ${attempt} retries`, { url });
-      }
       return result;
     } catch (error) {
       lastError = error as Error;
 
       // 如果是最后一次尝试，抛出错误
       if (attempt === maxRetries) {
-        if (logWarnings) {
-          logger.warn(`Request failed after ${maxRetries + 1} attempts`, {
-            url,
-            error: lastError.message,
-          });
-        }
         throw lastError;
       }
 
@@ -94,14 +82,6 @@ export async function fetchWithRetry<T = any>(
       const delay = exponentialBackoff
         ? baseDelay * Math.pow(2, attempt)
         : baseDelay;
-
-      if (logWarnings) {
-        logger.warn(`Request failed, retrying... (${attempt + 1}/${maxRetries})`, {
-          url,
-          error: lastError.message,
-          retryIn: `${delay}ms`,
-        });
-      }
 
       await sleep(delay);
     }
@@ -131,14 +111,11 @@ export async function fetchWithRetry<T = any>(
 export async function safeExecute<T>(
   operation: () => Promise<T>,
   fallback: T,
-  errorLogger?: ReturnType<typeof createLogger>
+  _errorLogger?: ReturnType<typeof createLogger>
 ): Promise<T> {
   try {
     return await operation();
-  } catch (error) {
-    if (errorLogger) {
-      errorLogger.error("Operation failed", error);
-    }
+  } catch (_error) {
     return fallback;
   }
 }
@@ -162,9 +139,9 @@ export async function safeExecute<T>(
 export async function safeExecuteAll<T>(
   operations: Array<() => Promise<T>>,
   fallback: T,
-  logger?: ReturnType<typeof createLogger>
+  _logger?: ReturnType<typeof createLogger>
 ): Promise<T[]> {
-  const promises = operations.map((op) => safeExecute(op, fallback, logger));
+  const promises = operations.map((op) => safeExecute(op, fallback));
   return Promise.all(promises);
 }
 

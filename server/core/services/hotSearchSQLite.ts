@@ -54,14 +54,7 @@ export class HotSearchSQLiteService {
         )
       `);
 
-      console.log(`✅ [HotSearchSQLite] SQLite 数据库初始化成功: ${this.DB_PATH}`);
-      console.log(`   数据将持久化存储，重启不丢失`);
     } catch (error) {
-      console.warn('⚠️ [HotSearchSQLite] better-sqlite3 初始化失败');
-      console.warn(`   原因: ${error.message}`);
-      console.warn('   解决方案: 查看 SQLITE安装指南.md');
-      console.warn('');
-      console.warn('   自动降级到内存模式（功能正常，重启后数据丢失）');
       // 降级到内存模式（不持久化）
       this.initMemoryFallback();
     }
@@ -71,7 +64,6 @@ export class HotSearchSQLiteService {
    * 内存降级模式（当 better-sqlite3 不可用时）
    */
   private initMemoryFallback(): void {
-    console.log('🔄 [HotSearchSQLite] 内存降级模式已激活');
 
     // 创建内存存储
     const memoryStore = new Map<string, HotSearchItem>();
@@ -185,8 +177,6 @@ export class HotSearchSQLiteService {
         };
       },
     };
-
-    console.log('✅ [HotSearchSQLite] 内存模式初始化完成 - 功能正常，数据重启后丢失');
   }
 
   /**
@@ -197,7 +187,6 @@ export class HotSearchSQLiteService {
 
     // 违规词检查
     if (await this.isForbidden(term)) {
-      console.log(`[HotSearchSQLite] 搜索词包含违规内容: ${term}`);
       return;
     }
 
@@ -217,10 +206,8 @@ export class HotSearchSQLiteService {
 
       // 清理超出限制的低分记录
       this.cleanupOldEntries();
-
-      console.log(`[HotSearchSQLite] 记录搜索词: "${term}"`);
     } catch (error) {
-      console.error('[HotSearchSQLite] 记录失败:', error);
+      // 静默失败
     }
   }
 
@@ -244,7 +231,6 @@ export class HotSearchSQLiteService {
         createdAt: row.createdAt,
       }));
     } catch (error) {
-      console.error('[HotSearchSQLite] 查询失败:', error);
       return [];
     }
   }
@@ -264,13 +250,9 @@ export class HotSearchSQLiteService {
         )
       `);
 
-      const result = stmt.run(this.MAX_ENTRIES);
-      if (result && result.changes > 0) {
-        console.log(`[HotSearchSQLite] 清理了 ${result.changes} 条旧记录`);
-      }
+      stmt.run(this.MAX_ENTRIES);
     } catch (error) {
       // 内存模式可能不支持这个操作，忽略错误
-      console.debug('[HotSearchSQLite] 清理跳过（内存模式）');
     }
   }
 
@@ -288,10 +270,8 @@ export class HotSearchSQLiteService {
       const stmt = this.db.prepare('DELETE FROM hot_searches');
       stmt.run();
 
-      console.log('[HotSearchSQLite] 所有热搜记录已清除');
       return { success: true, message: '热搜记录已清除' };
     } catch (error) {
-      console.error('[HotSearchSQLite] 清除失败:', error);
       return { success: false, message: '清除失败' };
     }
   }
@@ -311,13 +291,11 @@ export class HotSearchSQLiteService {
       const result = stmt.run(term);
 
       if (result.changes > 0) {
-        console.log(`[HotSearchSQLite] 删除热搜词: "${term}"`);
-        return { success: true, message: `热搜词 "${term}" 已删除` };
+        return { success: true, message: `热搜词 \"${term}\" 已删除` };
       } else {
         return { success: false, message: '热搜词不存在' };
       }
     } catch (error) {
-      console.error('[HotSearchSQLite] 删除失败:', error);
       return { success: false, message: '删除失败' };
     }
   }
@@ -349,7 +327,6 @@ export class HotSearchSQLiteService {
 
       return { total, topTerms };
     } catch (error) {
-      console.error('[HotSearchSQLite] 统计查询失败:', error);
       return { total: 0, topTerms: [] };
     }
   }
@@ -388,7 +365,6 @@ export class HotSearchSQLiteService {
   close(): void {
     if (this.db && this.db.close) {
       this.db.close();
-      console.log('[HotSearchSQLite] 数据库已关闭');
     }
   }
 }

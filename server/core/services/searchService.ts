@@ -1,6 +1,5 @@
 import pLimit from "p-limit";
 import { MemoryCache } from "../cache/memoryCache";
-import { createLogger } from "../utils/logger";
 import { safeExecute, fetchWithRetry } from "../utils/fetch";
 import type {
   MergedLinks,
@@ -9,8 +8,6 @@ import type {
   SearchResult,
 } from "../types/models";
 import { PluginManager, type AsyncSearchPlugin } from "../plugins/manager";
-
-const logger = createLogger("searchService");
 
 export interface SearchServiceOptions {
   priorityChannels: string[];
@@ -30,12 +27,6 @@ export class SearchService {
   constructor(options: SearchServiceOptions, pluginManager: PluginManager) {
     this.options = options;
     this.pluginManager = pluginManager;
-    logger.info("SearchService initialized", {
-      plugins: pluginManager.getPlugins().length,
-      cacheEnabled: options.cacheEnabled,
-      defaultConcurrency: options.defaultConcurrency,
-      priorityChannels: options.priorityChannels?.length || 0,
-    });
   }
 
   getPluginManager() {
@@ -53,14 +44,6 @@ export class SearchService {
     cloudTypes: string[] | undefined,
     ext: Record<string, any> | undefined
   ): Promise<SearchResponse> {
-    logger.info("Search started", {
-      keyword,
-      sourceType,
-      plugins,
-      channels: channels?.length,
-      concurrency,
-      forceRefresh,
-    });
     const effChannels =
       channels && channels.length > 0 ? channels : this.options.defaultChannels;
     const effConcurrency =
@@ -145,13 +128,6 @@ export class SearchService {
       };
     }
 
-    logger.info("Search completed", {
-      keyword,
-      total,
-      platforms: Object.keys(mergedLinks),
-      resultType: effResultType,
-    });
-
     return response;
   }
 
@@ -162,7 +138,6 @@ export class SearchService {
     concurrencyOverride?: number,
     ext?: Record<string, any>
   ): Promise<SearchResult[]> {
-    const startTime = Date.now();
     const chList = Array.isArray(channels) ? channels : [];
     const cacheKey = `tg:${keyword}:${[...chList].sort().join(",")}`;
     const { cacheEnabled, cacheTtlMinutes, priorityChannels } = this.options;
@@ -171,18 +146,9 @@ export class SearchService {
     if (!forceRefresh && cacheEnabled) {
       const cached = this.tgCache.get(cacheKey);
       if (cached.hit && cached.value) {
-        const cacheTime = Date.now() - startTime;
-        logger.info("TG cache hit", {
-          keyword,
-          channels: chList.length,
-          results: cached.value.length,
-          timeMs: cacheTime
-        });
         return cached.value;
       }
     }
-
-    logger.debug("TG search started", { keyword, channels: chList.length });
 
     // 获取配置
     const { fetchTgChannelPosts } = await import("./tg");
@@ -204,9 +170,8 @@ export class SearchService {
     const priorityList = chList.filter((ch) => prioritySet.has(ch));
     const normalList = chList.filter((ch) => !prioritySet.has(ch));
 
-    // 辅助函数：创建频道搜索任务（带性能监控）
+    // 辅助函数：创建频道搜索任务
     const createChannelTask = (channel: string) => async () => {
-      const channelStart = Date.now();
       const result = await safeExecute(
         () =>
           this.withTimeout<SearchResult[]>(
@@ -216,39 +181,14 @@ export class SearchService {
             timeoutMs,
             []
           ),
-        [],
-        logger.child(`tg:${channel}`)
+        []
       );
-      const channelTime = Date.now() - channelStart;
-      logger.debug("TG channel completed", {
-        channel,
-        keyword,
-        results: result.length,
-        timeMs: channelTime,
-      });
       return result;
-    };
-
-    // 性能监控
-    const metrics = {
-      priorityCount: priorityList.length,
-      normalCount: normalList.length,
-      priorityTime: 0,
-      normalTime: 0,
-      priorityResults: 0,
-      normalResults: 0,
     };
 
     // 第一批：优先频道（使用更高并发）
     let results: SearchResult[] = [];
     if (priorityList.length > 0) {
-      const priorityStart = Date.now();
-      logger.debug("TG search - priority batch", {
-        keyword,
-        priorityChannels: priorityList.length,
-        concurrency: Math.min(concurrency * 2, 12),
-      });
-
       const priorityConcurrency = Math.min(concurrency * 2, 12); // 优先频道使用双倍并发
       const priorityTasks = priorityList.map(createChannelTask);
       const priorityResults = await this.runWithConcurrency(
@@ -259,27 +199,12 @@ export class SearchService {
       for (const arr of priorityResults) {
         if (Array.isArray(arr)) {
           results.push(...arr);
-          metrics.priorityResults += arr.length;
         }
       }
-      metrics.priorityTime = Date.now() - priorityStart;
-
-      logger.info("TG search - priority batch completed", {
-        keyword,
-        results: metrics.priorityResults,
-        timeMs: metrics.priorityTime,
-      });
     }
 
     // 如果优先频道已有结果，继续抓取普通频道
     if (normalList.length > 0) {
-      const normalStart = Date.now();
-      logger.debug("TG search - normal batch", {
-        keyword,
-        normalChannels: normalList.length,
-        concurrency,
-      });
-
       const normalTasks = normalList.map(createChannelTask);
       const normalResults = await this.runWithConcurrency(
         normalTasks,
@@ -289,37 +214,14 @@ export class SearchService {
       for (const arr of normalResults) {
         if (Array.isArray(arr)) {
           results.push(...arr);
-          metrics.normalResults += arr.length;
         }
       }
-      metrics.normalTime = Date.now() - normalStart;
-
-      logger.info("TG search - normal batch completed", {
-        keyword,
-        results: metrics.normalResults,
-        timeMs: metrics.normalTime,
-      });
     }
 
     // 缓存结果
     if (cacheEnabled && results.length > 0) {
       this.tgCache.set(cacheKey, results, cacheTtlMinutes * 60_000);
-      logger.debug("TG cache stored", { keyword, results: results.length });
     }
-
-    const totalTime = Date.now() - startTime;
-    logger.info("TG search completed", {
-      keyword,
-      totalResults: results.length,
-      totalTimeMs: totalTime,
-      priorityChannels: metrics.priorityCount,
-      normalChannels: metrics.normalCount,
-      priorityTimeMs: metrics.priorityTime,
-      normalTimeMs: metrics.normalTime,
-      priorityResults: metrics.priorityResults,
-      normalResults: metrics.normalResults,
-      cacheHit: false,
-    });
 
     return results;
   }
@@ -341,12 +243,9 @@ export class SearchService {
     if (!forceRefresh && cacheEnabled) {
       const cached = this.pluginCache.get(cacheKey);
       if (cached.hit && cached.value) {
-        logger.debug("Plugin cache hit", { keyword, plugins });
         return cached.value;
       }
     }
-
-    logger.debug("Plugin search started", { keyword, plugins });
 
     const allPlugins = this.pluginManager.getPlugins();
     let available: AsyncSearchPlugin[] = [];
@@ -404,8 +303,7 @@ export class SearchService {
       pluginPromises.map((promiseFactory) => async () => {
         return await safeExecute(
           promiseFactory,
-          [],
-          logger.child(`plugin:${promiseFactory.name || "unknown"}`)
+          []
         );
       }),
       concurrency
@@ -420,10 +318,8 @@ export class SearchService {
 
     if (cacheEnabled && merged.length > 0) {
       this.pluginCache.set(cacheKey, merged, cacheTtlMinutes * 60_000);
-      logger.debug("Plugin cache stored", { keyword, results: merged.length });
     }
 
-    logger.debug("Plugin search completed", { keyword, results: merged.length });
     return merged;
   }
 

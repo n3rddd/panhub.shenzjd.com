@@ -19,7 +19,6 @@ export default defineEventHandler(async (event) => {
       },
     };
   } catch (error) {
-    console.error('[GET /api/hot-searches] Error:', error);
     return {
       code: -1,
       message: '获取热搜失败',

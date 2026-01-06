@@ -26,7 +26,6 @@ export default defineEventHandler(async (event) => {
       data: null,
     };
   } catch (error) {
-    console.error('[POST /api/hot-searches] Error:', error);
     return {
       code: -1,
       message: '记录搜索词失败',

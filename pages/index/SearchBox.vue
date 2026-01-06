@@ -29,9 +29,25 @@
           @touchend="handleTouchEnd" />
 
         <div class="search-actions">
-          <!-- 清空按钮 -->
+          <!-- 重置按钮 - 搜索过程中始终显示 -->
           <button
-            v-if="modelValue && !loading && !paused"
+            v-if="loading"
+            class="action-btn reset"
+            type="button"
+            @click="$emit('reset')"
+            @touchstart="handleTouchStart"
+            @touchend="handleTouchEnd"
+            title="重置搜索">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+            </svg>
+            <span class="btn-text">重置</span>
+          </button>
+
+          <!-- 清空按钮 - 未搜索时显示 -->
+          <button
+            v-else-if="modelValue && !loading"
             class="action-btn ghost"
             type="button"
             @click="
@@ -364,6 +380,22 @@ onMounted(() => {
   transform: translateY(0);
 }
 
+/* 重置按钮 - 红色样式 */
+.action-btn.reset {
+  background: linear-gradient(135deg, #ef4444, #f87171);
+  color: white;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.action-btn.reset:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+}
+
+.action-btn.reset:active:not(:disabled) {
+  transform: translateY(0);
+}
+
 /* 暂停状态指示器 */
 .paused-indicator {
   display: flex;
@@ -428,7 +460,8 @@ onMounted(() => {
 
   .action-btn.primary .btn-text,
   .action-btn.pause .btn-text,
-  .action-btn.resume .btn-text {
+  .action-btn.resume .btn-text,
+  .action-btn.reset .btn-text {
     display: none; /* 在小屏幕上只显示图标 */
   }
 
@@ -437,7 +470,8 @@ onMounted(() => {
   }
 
   .action-btn.pause,
-  .action-btn.resume {
+  .action-btn.resume,
+  .action-btn.reset {
     padding: 8px;
   }
 

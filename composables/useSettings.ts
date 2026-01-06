@@ -84,8 +84,8 @@ export function useSettings(): UseSettingsReturn {
       }
 
       settings.value = validated;
-    } catch (error) {
-      console.warn("[useSettings] Failed to load settings:", error);
+    } catch (_error) {
+      // Silent failure - settings will use defaults
     }
   }
 
@@ -95,8 +95,8 @@ export function useSettings(): UseSettingsReturn {
 
     try {
       localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings.value));
-    } catch (error) {
-      console.warn("[useSettings] Failed to save settings:", error);
+    } catch (_error) {
+      // Silent failure
     }
   }
 
@@ -106,8 +106,8 @@ export function useSettings(): UseSettingsReturn {
 
     try {
       localStorage.removeItem(STORAGE_KEYS.settings);
-    } catch (error) {
-      console.warn("[useSettings] Failed to remove settings:", error);
+    } catch (_error) {
+      // Silent failure
     }
 
     settings.value = {

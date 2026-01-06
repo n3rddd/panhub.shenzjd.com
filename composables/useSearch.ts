@@ -54,7 +54,6 @@ export function useSearch() {
       state.value.paused = true;
       // 取消当前的请求，但保留已获取的结果
       cancelActiveRequests();
-      console.log("[useSearch] Search paused");
     }
   }
 
@@ -64,14 +63,13 @@ export function useSearch() {
 
     state.value.paused = false;
     state.value.deepLoading = true;
-    console.log("[useSearch] Search continued");
 
     // 继续执行深度搜索
     const mySeq = ++searchSeq;
     try {
       await performDeepSearch(options, mySeq);
     } catch (error) {
-      console.warn("[useSearch] Continue search failed:", error);
+      // 忽略错误
     } finally {
       state.value.deepLoading = false;
     }
@@ -114,14 +112,7 @@ export function useSearch() {
       } as any);
       return response.data || null;
     } catch (error: any) {
-      if (error.name === "AbortError") {
-        console.debug("[useSearch] Request aborted");
-        return null;
-      }
-      console.warn("[useSearch] Request failed:", {
-        params,
-        error: error.message,
-      });
+      // 请求失败或被中止，返回 null
       return null;
     }
   }
@@ -285,7 +276,6 @@ export function useSearch() {
         );
       } catch (error) {
         // 单批失败忽略
-        console.warn("[useSearch] Batch failed:", error);
       }
     }
   }
@@ -297,10 +287,8 @@ export function useSearch() {
         method: 'POST',
         body: { term: keyword },
       });
-      console.log('[useSearch] Recorded hot search:', keyword);
     } catch (error) {
       // 静默失败，不影响主搜索流程
-      console.debug('[useSearch] Failed to record hot search:', error);
     }
   }
 
@@ -325,13 +313,6 @@ export function useSearch() {
       state.value.error = "请先在设置中选择至少一个搜索来源";
       return;
     }
-
-    console.log("[useSearch] Starting search", {
-      keyword,
-      plugins: enabledPlugins.length,
-      channels: settings.enabledTgChannels.length,
-      concurrency: settings.concurrency,
-    });
 
     // iOS Safari 兼容性：确保输入框失去焦点
     if (
@@ -377,7 +358,6 @@ export function useSearch() {
       }
     } catch (error: any) {
       state.value.error = error?.data?.message || error?.message || "请求失败";
-      console.error("[useSearch] Search failed:", error);
     } finally {
       state.value.elapsedMs = Math.round(performance.now() - start);
       // 如果暂停了，保持 loading 状态，只取消 deepLoading
@@ -385,13 +365,6 @@ export function useSearch() {
         state.value.loading = false;
       }
       state.value.deepLoading = false;
-      console.log("[useSearch] Search finished", {
-        keyword,
-        total: state.value.total,
-        elapsedMs: state.value.elapsedMs,
-        platforms: Object.keys(state.value.merged),
-        paused: state.value.paused,
-      });
     }
   }
 
@@ -416,7 +389,7 @@ export function useSearch() {
     try {
       await navigator.clipboard.writeText(url);
     } catch (error) {
-      console.warn("[useSearch] Copy failed:", error);
+      // 忽略复制失败
     }
   }
 

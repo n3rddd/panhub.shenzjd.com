@@ -32,7 +32,6 @@ export class HotSearchService {
 
     // 违规词检查（这里可以集成现有的过滤系统）
     if (await this.isForbidden(term)) {
-      console.log(`[HotSearchService] 搜索词包含违规内容: ${term}`);
       return;
     }
 
@@ -58,8 +57,6 @@ export class HotSearchService {
 
     // 保存到缓存
     this.cache.set(this.CACHE_KEY, searches, this.CACHE_TTL);
-
-    console.log(`[HotSearchService] 记录搜索词: "${term}" (score: ${existing ? existing.score : 1})`);
   }
 
   /**
@@ -85,7 +82,6 @@ export class HotSearchService {
     }
 
     this.cache.delete(this.CACHE_KEY);
-    console.log('[HotSearchService] 所有热搜记录已清除');
     return { success: true, message: '热搜记录已清除' };
   }
 
@@ -107,8 +103,7 @@ export class HotSearchService {
     const searches = result.value.filter(s => s.term !== term);
     this.cache.set(this.CACHE_KEY, searches, this.CACHE_TTL);
 
-    console.log(`[HotSearchService] 删除热搜词: "${term}"`);
-    return { success: true, message: `热搜词 "${term}" 已删除` };
+    return { success: true, message: `热搜词 \"${term}\" 已删除` };
   }
 
   /**
